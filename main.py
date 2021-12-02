@@ -1,4 +1,4 @@
-﻿import sqlite3
+import sqlite3
 import datetime
 import sys
 import getopt
@@ -11,6 +11,14 @@ verbose = False
 duration = False
 moreDetails = False
 log = open('log.dat', 'w', encoding="utf8")
+
+artistsToSkip = [
+    # e.g. 'Super Simple Songs'
+] # add artists to skip from analysis
+
+titlesToSkip = [
+    # e.g. 'Baby Shark'
+] # add titles to skip from analysis
 
 def flags():
     opts, args = getopt.getopt(sys.argv[2:], "d:y:mv", ["duration=", "year="])
@@ -33,7 +41,9 @@ def flags():
 def should_not_ignore(title, year, header, analyzeYear):
     if (header == "YouTube Music"):
         if (title[:7] == "Watched"):
-            if (year[:4] == str(analyzeYear)):
+            if (title[8:] in titlesToSkip):
+                return False
+            elif (year[:4] == str(analyzeYear)):
                 return True
             else:
                 False
@@ -58,7 +68,7 @@ def parse_json(file, cursor):
     json_object = json.load(file)
     for obj in json_object:
         if (should_not_ignore(obj['title'], obj['time'], obj['header'], analyzeYear)):
-            if ('subtitles' in obj):
+            if ('subtitles' in obj and obj['subtitles'][0]['name'].replace(' - Topic', '') not in artistsToSkip):
                 cursor.execute("""INSERT INTO songs(title, artist, year, url) VALUES(?, ?, ?, ?)""", (
                     obj['title'][8:], obj['subtitles'][0]['name'], obj['time'], obj['titleUrl'][32:]))
             elif (('titleUrl' in obj) and (duration)):
@@ -224,37 +234,57 @@ def get_duration(cursor):
 def gen_html_report(cursor, data, analyzeYear):
     htmlreport = open('report_{0}.html'.format(
         str(analyzeYear)), 'w', encoding=("utf8"))
-    print("""<!DOCTYPE html><html><head><title>Wrapped</title><style type="text/css">body{background-color: #000000;}.center-div{position: absolute; margin: auto; top: 0; right: 0; bottom: 0; left: 0; width: 50%; height: 90%; background-color: #000000; border-radius: 3px; padding: 10px;}.ytm_logo{width: 15%;position: relative;top: 30px;left: 40px;}.title_logo{width: 30%;position: relative;top: 30px;left: 60px;}.right_title{position: absolute;font-family: "Product Sans";top: 55px;right: 10%;font-size: 2em;color: #ffffff;}.container{position: relative;top: 13%;left: 53px;}.minutes_title{font-family: "Product Sans";font-size: 2em;color: #ffffff;}.minutes{font-family: "Product Sans";font-size: 6em;color: #ffffff;}.row{display: flex;}.column{flex: 50%;}.list{font-family: "Roboto";font-size: 1.5em;line-height: 30px;color: #ffffff;}</style></head><body><div class="center-div"><img src="ytm_logo.png" class="ytm_logo"><img src="title.png" class="title_logo"/><span class="right_title">""", file=htmlreport)
+    print("""
+<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<title>YTM Wrapped</title>
+<style type="text/css">
+@import url('https://fonts.googleapis.com/css2?family=PT+Sans&family=Roboto:wght@400;500&display=swap');
+body{background-color: #000; color: #fff; font-family: "Roboto"; font-size: 14px;}
+.center-div{margin: auto; width: 720px; position: relative;}
+.ytm_logo{height: 64px; position: absolute; top: 40px; 0;}
+.title_logo{height: 64px; position: absolute; top: 40px; left: 80px;}
+.right_title{position: absolute; top: 60px; right: 0; font-size: 2em; font-weight: 500;}
+.container{position: absolute; top: 150px; left: 20px; right: 20px}
+.minutes_title{font-size: 2em; font-weight: 500;}
+.minutes{font-size: 6em;}
+.row{display: flex;}
+.column1{flex: 40%;}
+.column2{flex: 60%;}
+.list{font-size: 1.4em;}
+.list div{margin-bottom: 0.5em;}
+.list span{font-size: 0.75em; opacity: 0.75;}
+</style></head><body><div class="center-div"><img src="ytm_logo.png" class="ytm_logo"><img src="title.png" class="title_logo"/><span class="right_title">""", file=htmlreport)
     print(str(analyzeYear), file=htmlreport)
     print(""" Wrapped</span><div class="container"><div class="minutes_title">Minutes Listened</div><div class="minutes">""", file=htmlreport)
     if duration:
         print(str(data[0]//60), file=htmlreport)
     else:
         print("N/A", file=htmlreport)
-    print("""</div><br><br><div class="row"><div class="column"><div class="minutes_title">Top Artists</div><div class="list">""", file=htmlreport)
+    print("""</div><br><br><div class="row"><div class="column1"><div class="minutes_title">Top Artists</div><div class="list">""", file=htmlreport)
     if duration:
         cursor.execute("""SELECT artist, occurence, duration FROM artist_count WHERE (occurence > 5) ORDER by duration DESC LIMIT 10""")
     else:
         cursor.execute("""SELECT artist, occurence, duration FROM artist_count WHERE (occurence > 5) ORDER by occurence DESC LIMIT 10""")
     rows = cursor.fetchall()
     for row in rows:
-        print("<br>", file=htmlreport)
+        print("<div></div>", file=htmlreport)
         if moreDetails:
             if duration:
-                print('{0} - {1} songs ({2} mins)'.format(str(row[0]).replace(' - Topic', ''), row[1], str(row[2]//60)), file=htmlreport)
+                print('{0}<br><span>{1} songs ({2} mins)</span>'.format(str(row[0]).replace(' - Topic', ''), row[1], str(row[2]//60)), file=htmlreport)
             else:
-                print('{0} - {1} songs'.format(str(row[0]).replace(' - Topic', ''), row[1]), file=htmlreport)
+                print('{0}<br><span>{1} songs</span>'.format(str(row[0]).replace(' - Topic', ''), row[1]), file=htmlreport)
         else:
             print('{0}'.format(str(row[0]).replace(
                 ' - Topic', '')), file=htmlreport)
-    print("""</div></div><div class="column"><div class="minutes_title">Top Songs</div><div class="list">""", file=htmlreport)
+    print("""</div></div><div class="column2"><div class="minutes_title">Top Songs</div><div class="list">""", file=htmlreport)
     cursor.execute(
         """SELECT artist, title, occurence FROM songs_count ORDER by occurence DESC LIMIT 10""")
     rows = cursor.fetchall()
     for row in rows:
-        print("<br>", file=htmlreport)
+        print("<div></div>", file=htmlreport)
         if moreDetails:
-            print('{0} - {1} - {2} plays'.format(str(row[0]).replace(
+            print('{0} - {1}<br><span>{2} plays</span>'.format(str(row[0]).replace(
                 ' - Topic', ''), row[1], row[2]), file=htmlreport)
         else:
             print('{0}'.format(row[1]), file=htmlreport)
