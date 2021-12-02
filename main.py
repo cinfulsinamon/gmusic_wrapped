@@ -13,11 +13,32 @@ moreDetails = False
 log = open('log.dat', 'w', encoding="utf8")
 
 artistsToSkip = [
-    # e.g. 'Super Simple Songs'
+    'Super Simple Songs',
+    'Nursery Rhymes & Kids Songs',
+    'Cocomelon Nursery Rhymes',
+    'Pinkfong',
+    'ChuChu TV',
+    'Bounce Patrol'
 ] # add artists to skip from analysis
 
 titlesToSkip = [
-    # e.g. 'Baby Shark'
+    'Baby Shark',
+    'Head Shoulders Knees \u0026 Toes Kids Exercise Song',
+    'Wheels on the Bus',
+    'If You\'re Happy and You Know It (Clap Your Hands)',
+    'Old MacDonald Had a Farm',
+    'If You\'re Happy',
+    'Five Little Ducks',
+    'One Little Finger',
+    'Alphabet Animals',
+    'The Wheels on the Bus Go Round and Round',
+    'Yes Yes Vegetables Song',
+    'Cristal & МОЁТ',
+    'Голодный пёс [prod. by Pretty Scream]',
+    'The Wheels on the Bus - Nursery Rhymes for Children, Kids and Toddlers',
+    'Kanye West \u0026 Lil Pump - I Love It feat. Adele Givens [Official Music Video]',
+    'TONES AND I - DANCE MONKEY (OFFICIAL VIDEO)',
+    'Cardi B, Bad Bunny & J Balvin - I Like It [Official Music Video]'
 ] # add titles to skip from analysis
 
 def flags():
@@ -185,8 +206,9 @@ def call_api(idlist, cursor):
             artist = item['snippet']['channelTitle']
             title = item['snippet']['title']
             url = item['id']
-            cursor.execute(
-                """UPDATE report SET duration = ?, artist = ?, title = ? WHERE url = ?""", (duration, artist, title, url))
+            if (title not in titlesToSkip and artist.replace(' - Topic', '') not in artistsToSkip):
+                cursor.execute(
+                    """UPDATE report SET duration = ?, artist = ?, title = ? WHERE url = ?""", (duration, artist, title, url))
 
 def get_duration(cursor):
     # Count duration
@@ -241,11 +263,11 @@ def gen_html_report(cursor, data, analyzeYear):
 <style type="text/css">
 @import url('https://fonts.googleapis.com/css2?family=PT+Sans&family=Roboto:wght@400;500&display=swap');
 body{background-color: #000; color: #fff; font-family: "Roboto"; font-size: 14px;}
-.center-div{margin: auto; width: 720px; position: relative;}
+.center-div{margin: 100px auto; width: 720px; position: relative;}
 .ytm_logo{height: 64px; position: absolute; top: 40px; 0;}
 .title_logo{height: 64px; position: absolute; top: 40px; left: 80px;}
 .right_title{position: absolute; top: 60px; right: 0; font-size: 2em; font-weight: 500;}
-.container{position: absolute; top: 150px; left: 20px; right: 20px}
+.container{position: absolute; top: 150px; left: 0; right: 0}
 .minutes_title{font-size: 2em; font-weight: 500;}
 .minutes{font-size: 6em;}
 .row{display: flex;}
